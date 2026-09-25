@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Acompanhamento de autocarros MAVE em tempo real na região do Vale do Ave">
+    <meta name="theme-color" content="#0d6efd">
     <title>MAVE Bus Tracking - Vale do Ave</title>
 
     <!-- Bootstrap 5 CSS -->
@@ -15,9 +17,18 @@
     <div class="container py-4">
         <!-- Header -->
         <header class="mb-4">
-            <h1 class="text-center">MAVE Bus Tracking</h1>
+            <h1 class="text-center">
+                <span class="bus-icon">🚌</span> MAVE Bus Tracking
+            </h1>
             <p class="text-center text-muted">Horários em tempo real - Vale do Ave</p>
         </header>
+
+        <!-- Connection Error Alert (hidden by default) -->
+        <div id="connectionError" class="alert alert-danger alert-dismissible fade" role="alert" style="display: none;">
+            <strong>Erro de conexão</strong>
+            <p class="mb-0 small">Não foi possível conectar ao servidor. Verifique sua conexão à internet.</p>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
 
         <!-- Main View: Stop List -->
         <div id="stopListView">

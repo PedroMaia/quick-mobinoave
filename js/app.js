@@ -59,8 +59,17 @@ const App = {
             // Display all stops
             this.renderStops(this.stops);
 
+            // Hide connection error if it was showing
+            this.hideConnectionError();
+
         } catch (error) {
-            this.showError('stopList', 'Não foi possível carregar as paragens. Verifique sua conexão.');
+            this.showConnectionError();
+            this.showError('stopList', `
+                <p>Não foi possível carregar as paragens.</p>
+                <button class="btn btn-primary btn-sm mt-2" onclick="App.loadStops()">
+                    Tentar novamente
+                </button>
+            `);
             console.error('Error loading stops:', error);
         }
     },
@@ -248,7 +257,11 @@ const App = {
      */
     async refreshStopData() {
         const routesList = document.getElementById('routesList');
-        this.showLoading('routesList', 'A carregar rotas...');
+
+        // Show loading spinner only on first load, not on auto-refresh
+        if (!routesList.querySelector('.route-card')) {
+            this.showLoading('routesList', 'A carregar rotas...');
+        }
 
         try {
             // Load routes for this stop
@@ -260,8 +273,17 @@ const App = {
 
             this.renderRoutes(routesWithLiveData);
 
+            // Hide connection error if it was showing
+            this.hideConnectionError();
+
         } catch (error) {
-            this.showError('routesList', 'Não foi possível carregar as rotas desta paragem.');
+            this.showConnectionError();
+            this.showError('routesList', `
+                <p>Não foi possível carregar as rotas.</p>
+                <button class="btn btn-primary btn-sm mt-2" onclick="App.refreshStopData()">
+                    Tentar novamente
+                </button>
+            `);
             console.error('Error loading routes:', error);
         }
     },
@@ -501,10 +523,43 @@ const App = {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    },
+
+    /**
+     * Show connection error alert
+     */
+    showConnectionError() {
+        const alert = document.getElementById('connectionError');
+        if (alert) {
+            alert.style.display = 'block';
+            alert.classList.add('show');
+        }
+    },
+
+    /**
+     * Hide connection error alert
+     */
+    hideConnectionError() {
+        const alert = document.getElementById('connectionError');
+        if (alert) {
+            alert.style.display = 'none';
+            alert.classList.remove('show');
+        }
     }
 };
 
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     App.init();
+});
+
+// Handle online/offline events
+window.addEventListener('online', () => {
+    App.hideConnectionError();
+    console.log('Connection restored');
+});
+
+window.addEventListener('offline', () => {
+    App.showConnectionError();
+    console.log('Connection lost');
 });
