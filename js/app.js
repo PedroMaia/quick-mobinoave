@@ -125,7 +125,7 @@ const App = {
      * Handle stop selection
      * @param {string} stopId - Selected stop ID
      */
-    selectStop(stopId) {
+    async selectStop(stopId) {
         const stop = this.stops.find(s => s.id === stopId);
         if (!stop) return;
 
@@ -135,9 +135,8 @@ const App = {
         // Save to recent stops history
         Storage.saveRecentStop(stop);
 
-        // TODO: Load stop details (Step 5)
-        // For now, just show a placeholder
-        this.showStopDetailView();
+        // Load and show stop details
+        await this.loadStopDetails();
     },
 
     /**
@@ -204,9 +203,10 @@ const App = {
     },
 
     /**
-     * Show stop detail view
+     * Load stop details (routes and schedules)
      */
-    showStopDetailView() {
+    async loadStopDetails() {
+        // Switch to detail view
         document.getElementById('stopListView').style.display = 'none';
         document.getElementById('stopDetailView').style.display = 'block';
 
@@ -221,13 +221,120 @@ const App = {
             </div>
         `;
 
-        // Placeholder for routes (Step 5)
+        // Load routes
         const routesList = document.getElementById('routesList');
+        this.showLoading('routesList', 'A carregar rotas...');
+
+        try {
+            const routes = await MaveAPI.getStopRoutes(this.currentStop.id);
+            console.log(`Loaded ${routes.length} routes for stop`, routes);
+
+            this.renderRoutes(routes);
+
+        } catch (error) {
+            this.showError('routesList', 'Não foi possível carregar as rotas desta paragem.');
+            console.error('Error loading routes:', error);
+        }
+    },
+
+    /**
+     * Render routes for current stop
+     * @param {Array} routes - Array of route objects with journeys
+     */
+    renderRoutes(routes) {
+        const routesList = document.getElementById('routesList');
+
+        if (routes.length === 0) {
+            routesList.innerHTML = `
+                <div class="alert alert-warning">
+                    <p class="mb-0">Sem rotas disponíveis para esta paragem.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Sort routes by nameShort (route number)
+        routes.sort((a, b) => {
+            const numA = parseInt(a.nameShort) || 0;
+            const numB = parseInt(b.nameShort) || 0;
+            return numA - numB;
+        });
+
+        const routesHTML = routes.map(route => {
+            const nextJourneys = this.getNextJourneys(route.journeys, 3);
+
+            return `
+                <div class="card mb-3 route-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="mb-1">
+                                    <span class="badge" style="background-color: #${route.color || '6c757d'}">
+                                        ${this.escapeHTML(route.nameShort)}
+                                    </span>
+                                </h6>
+                                <p class="mb-0 small text-muted route-name">${this.escapeHTML(route.name)}</p>
+                            </div>
+                        </div>
+
+                        ${nextJourneys.length > 0 ? `
+                            <div class="mt-3">
+                                <small class="text-muted d-block mb-2">Próximas partidas:</small>
+                                <div class="d-flex flex-wrap gap-2">
+                                    ${nextJourneys.map(journey => `
+                                        <span class="badge bg-secondary journey-time">${journey}</span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="mt-2">
+                                <small class="text-muted">Sem partidas agendadas</small>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
         routesList.innerHTML = `
-            <div class="alert alert-info">
-                <p class="mb-0">Detalhes das rotas serão implementados no próximo passo.</p>
+            <div class="alert alert-info mb-3">
+                <small>ℹ️ Horários programados. Tempos em tempo real serão adicionados no próximo passo.</small>
             </div>
+            ${routesHTML}
         `;
+    },
+
+    /**
+     * Get next N journeys from current time
+     * @param {Array} journeys - Array of journey objects
+     * @param {number} count - Number of journeys to return
+     * @returns {Array} - Array of formatted time strings
+     */
+    getNextJourneys(journeys, count = 3) {
+        if (!journeys || journeys.length === 0) return [];
+
+        const now = new Date();
+        const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
+        // Get journeys with start times in the future
+        const upcoming = journeys
+            .filter(j => j.startTime > currentSeconds)
+            .sort((a, b) => a.startTime - b.startTime)
+            .slice(0, count)
+            .map(j => this.formatTime(j.startTime));
+
+        return upcoming;
+    },
+
+    /**
+     * Format seconds since midnight to HH:MM
+     * @param {number} seconds - Seconds since midnight
+     * @returns {string} - Formatted time string
+     */
+    formatTime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
     },
 
     /**
