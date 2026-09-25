@@ -16,7 +16,7 @@ const MaveAPI = {
     async fetchAPI(endpoint, params = {}) {
         try {
             // Build URL with query parameters
-            const url = new URL(endpoint, this.baseURL);
+            const url = new URL(this.baseURL + endpoint);
             Object.keys(params).forEach(key => {
                 url.searchParams.append(key, params[key]);
             });
