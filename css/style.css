@@ -121,6 +121,22 @@ header p {
     font-weight: 600;
 }
 
+.route-card .live-countdown {
+    font-size: 1.05rem;
+    font-weight: 700;
+    padding: 0.5rem 0.9rem;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
 /* Buttons */
 #backButton {
     border-radius: 8px;
