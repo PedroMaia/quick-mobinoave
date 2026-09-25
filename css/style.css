@@ -99,6 +99,28 @@ header p {
     font-weight: 600;
 }
 
+/* Route Cards */
+.route-card {
+    border-left: 4px solid #0d6efd;
+}
+
+.route-card .route-name {
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.route-card .journey-time {
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 0.4rem 0.7rem;
+}
+
+.route-card .badge {
+    font-size: 0.95rem;
+    padding: 0.4rem 0.7rem;
+    font-weight: 600;
+}
+
 /* Buttons */
 #backButton {
     border-radius: 8px;
