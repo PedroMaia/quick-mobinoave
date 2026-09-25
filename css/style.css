@@ -38,6 +38,25 @@ header p {
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
 }
 
+/* Recent Stops */
+#recentStops h6 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#recentStops .gap-2 {
+    gap: 0.5rem !important;
+}
+
+#recentStops .btn {
+    border-radius: 6px;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+    white-space: nowrap;
+}
+
 /* Stop List */
 .list-group-item {
     border-radius: 8px !important;

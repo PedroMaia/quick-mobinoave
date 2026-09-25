@@ -18,6 +18,9 @@ const App = {
         // Load stops from API
         await this.loadStops();
 
+        // Load and display recent stops
+        this.renderRecentStops();
+
         // Show stop list view
         this.showStopListView();
     },
@@ -129,9 +132,60 @@ const App = {
         this.currentStop = stop;
         console.log('Selected stop:', stop);
 
+        // Save to recent stops history
+        Storage.saveRecentStop(stop);
+
         // TODO: Load stop details (Step 5)
         // For now, just show a placeholder
         this.showStopDetailView();
+    },
+
+    /**
+     * Render recent stops
+     */
+    renderRecentStops() {
+        const recentStops = Storage.getRecentStops();
+        const recentContainer = document.getElementById('recentStops');
+
+        if (recentStops.length === 0) {
+            recentContainer.innerHTML = '';
+            return;
+        }
+
+        const recentHTML = `
+            <div class="mb-3">
+                <h6 class="text-muted mb-2">Recentes</h6>
+                <div class="d-flex flex-wrap gap-2">
+                    ${recentStops.map(stop => `
+                        <button class="btn btn-sm btn-outline-primary recent-stop-btn" data-stop-id="${stop.id}">
+                            ${this.escapeHTML(stop.nameShort)}
+                        </button>
+                    `).join('')}
+                    <button class="btn btn-sm btn-outline-danger" id="clearHistoryBtn">
+                        Limpar
+                    </button>
+                </div>
+            </div>
+        `;
+
+        recentContainer.innerHTML = recentHTML;
+
+        // Add click handlers for recent stops
+        recentContainer.querySelectorAll('.recent-stop-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const stopId = btn.getAttribute('data-stop-id');
+                this.selectStop(stopId);
+            });
+        });
+
+        // Add click handler for clear button
+        const clearBtn = document.getElementById('clearHistoryBtn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                Storage.clearRecentStops();
+                this.renderRecentStops();
+            });
+        }
     },
 
     /**
@@ -140,6 +194,9 @@ const App = {
     showStopListView() {
         document.getElementById('stopListView').style.display = 'block';
         document.getElementById('stopDetailView').style.display = 'none';
+
+        // Refresh recent stops (in case they were updated)
+        this.renderRecentStops();
 
         // Clear search
         document.getElementById('searchInput').value = '';
