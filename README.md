@@ -5,8 +5,9 @@ Simple web application for real-time bus tracking in Vale do Ave region (norther
 ## Features
 
 - Search and select bus stops
+- Filter by bus number to see all stops on that line (in route order)
 - Real-time bus arrival countdowns
-- Recent stops history (saved in cookies)
+- Favorite stops (saved in cookies)
 - Mobile-friendly responsive design
 - Portuguese interface
 
