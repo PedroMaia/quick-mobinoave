@@ -80,15 +80,20 @@ const Geo = {
 
         const base = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/';
 
-        const css = document.createElement('link');
-        css.rel = 'stylesheet';
-        css.href = base + 'leaflet.css';
-        document.head.appendChild(css);
+        // Wait for the CSS too: a map created before it applies gets a broken first layout
+        const cssLoaded = new Promise((resolve) => {
+            const css = document.createElement('link');
+            css.rel = 'stylesheet';
+            css.href = base + 'leaflet.css';
+            css.onload = resolve;
+            css.onerror = resolve; // The map still works (unstyled) without it
+            document.head.appendChild(css);
+        });
 
-        this.leafletPromise = new Promise((resolve, reject) => {
+        const jsLoaded = new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = base + 'leaflet.js';
-            script.onload = () => resolve(window.L);
+            script.onload = resolve;
             script.onerror = () => {
                 this.leafletPromise = null; // Allow a retry later
                 script.remove();
@@ -97,6 +102,7 @@ const Geo = {
             document.head.appendChild(script);
         });
 
+        this.leafletPromise = Promise.all([cssLoaded, jsLoaded]).then(() => window.L);
         return this.leafletPromise;
     }
 };
