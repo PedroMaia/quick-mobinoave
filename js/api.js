@@ -85,6 +85,23 @@ const MaveAPI = {
     },
 
     /**
+     * Get the ordered stop IDs served by a route
+     * @param {string} routeId - Route ID
+     * @returns {Promise<Array<string>>} - Unique stop IDs in route order
+     */
+    async getRouteStops(routeId) {
+        const route = await this.fetchAPI(`/routes/${routeId}`, {
+            shape: 'false'
+        });
+
+        const stopIds = (route.stops || [])
+            .filter(s => s.stage && s.stage.id)
+            .map(s => s.stage.id);
+
+        return [...new Set(stopIds)];
+    },
+
+    /**
      * Get live vehicle positions
      * @param {string} routeId - Optional: filter by route ID
      * @returns {Promise<Array>} - Array of vehicle location objects

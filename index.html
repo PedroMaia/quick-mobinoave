@@ -32,13 +32,23 @@
 
         <!-- Main View: Stop List -->
         <div id="stopListView">
-            <!-- Search bar placeholder -->
-            <div class="mb-3">
-                <input type="text" id="searchInput" class="form-control" placeholder="Procurar paragem...">
+            <!-- Search bar and bus line filter -->
+            <div class="row g-2 mb-3">
+                <div class="col-12 col-sm-8">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Procurar paragem ou nº do autocarro...">
+                </div>
+                <div class="col-12 col-sm-4">
+                    <select id="routeFilter" class="form-select" aria-label="Filtrar por linha">
+                        <option value="">Todas as linhas</option>
+                    </select>
+                </div>
             </div>
 
-            <!-- Recent stops placeholder -->
-            <div id="recentStops" class="mb-3"></div>
+            <!-- Favorite stops placeholder -->
+            <div id="favoriteStops" class="mb-3"></div>
+
+            <!-- Active route filter header -->
+            <div id="routeFilterInfo" class="mb-3"></div>
 
             <!-- Stop list placeholder -->
             <div id="stopList"></div>

@@ -51,23 +51,63 @@ header p {
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
 }
 
-/* Recent Stops */
-#recentStops h6 {
+/* Bus Line Filter */
+#routeFilter {
+    border-radius: 8px;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    border: 2px solid #e9ecef;
+}
+
+#routeFilter:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+.route-filter-info {
+    background-color: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+}
+
+.route-filter-info .badge {
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+/* Favorite Stops */
+#favoriteStops h6 {
     font-size: 0.85rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
-#recentStops .gap-2 {
+#favoriteStops .gap-2 {
     gap: 0.5rem !important;
 }
 
-#recentStops .btn {
+#favoriteStops .btn {
     border-radius: 6px;
     font-size: 0.85rem;
     padding: 0.4rem 0.8rem;
     white-space: nowrap;
+}
+
+.favorite-mark {
+    color: #f5b301;
+}
+
+.favorite-toggle {
+    border-radius: 6px;
+    color: #b07d00;
+}
+
+.favorite-toggle.active {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
 }
 
 /* Stop List */
@@ -179,7 +219,7 @@ a:focus, button:focus, input:focus {
 
 /* Better touch targets on mobile */
 @media (hover: none) and (pointer: coarse) {
-    .list-group-item, .btn, .recent-stop-btn {
+    .list-group-item, .btn, .favorite-stop-btn {
         min-height: 44px;
     }
 }
@@ -225,14 +265,14 @@ a:focus, button:focus, input:focus {
         font-size: 0.9rem;
     }
 
-    #searchInput {
+    #searchInput, #routeFilter {
         font-size: 16px; /* Prevents zoom on iOS */
     }
 }
 
 /* Print Styles */
 @media print {
-    #searchInput, #recentStops, #backButton, .alert {
+    #searchInput, #routeFilter, #favoriteStops, #favoriteToggle, #backButton, .alert {
         display: none;
     }
 

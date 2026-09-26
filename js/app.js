@@ -4,6 +4,11 @@
 
 const App = {
     stops: [],           // Cached stops data
+    stopsById: new Map(), // Stop lookup by ID
+    routes: [],          // Active routes (bus lines)
+    routeStopsCache: {}, // routeId -> ordered array of stop IDs
+    selectedRouteId: null, // Active bus line filter
+    routeFilterRequest: 0, // Guards against out-of-order route loads
     currentStop: null,   // Currently selected stop
     refreshInterval: null, // Auto-refresh interval ID
 
@@ -13,14 +18,14 @@ const App = {
     async init() {
         console.log('Initializing MAVE Bus Tracking...');
 
+        // Drop the old "recent stops" cookie
+        Storage.clearLegacyData();
+
         // Set up event listeners
         this.setupEventListeners();
 
-        // Load stops from API
-        await this.loadStops();
-
-        // Load and display recent stops
-        this.renderRecentStops();
+        // Load stops and bus lines from API
+        await Promise.all([this.loadStops(), this.loadRoutes()]);
 
         // Show stop list view
         this.showStopListView();
@@ -33,7 +38,13 @@ const App = {
         // Search input filter
         const searchInput = document.getElementById('searchInput');
         searchInput.addEventListener('input', (e) => {
-            this.filterStops(e.target.value);
+            this.onSearchInput(e.target.value);
+        });
+
+        // Bus line filter
+        const routeFilter = document.getElementById('routeFilter');
+        routeFilter.addEventListener('change', (e) => {
+            this.setRouteFilter(e.target.value || null);
         });
 
         // Back button
@@ -55,9 +66,10 @@ const App = {
 
             // Sort alphabetically by name
             this.stops.sort((a, b) => a.name.localeCompare(b.name, 'pt'));
+            this.stopsById = new Map(this.stops.map(stop => [stop.id, stop]));
 
-            // Display all stops
-            this.renderStops(this.stops);
+            // Display stops (respecting any active filters)
+            this.applyFilters();
 
             // Hide connection error if it was showing
             this.hideConnectionError();
@@ -75,23 +87,150 @@ const App = {
     },
 
     /**
-     * Filter stops by search query
+     * Load active bus lines and fill the line filter
+     */
+    async loadRoutes() {
+        const routeFilter = document.getElementById('routeFilter');
+
+        try {
+            this.routes = await MaveAPI.getRoutes();
+
+            // Sort numerically by bus number
+            this.routes.sort((a, b) => {
+                const numA = parseInt(a.nameShort) || 0;
+                const numB = parseInt(b.nameShort) || 0;
+                return numA - numB || a.nameShort.localeCompare(b.nameShort, 'pt');
+            });
+
+            routeFilter.innerHTML = `
+                <option value="">Todas as linhas</option>
+                ${this.routes.map(route => `
+                    <option value="${this.escapeHTML(route.id)}">
+                        ${this.escapeHTML(route.nameShort)} – ${this.escapeHTML(route.name)}
+                    </option>
+                `).join('')}
+            `;
+        } catch (error) {
+            // Line filter is optional: hide it and keep the rest of the app working
+            console.error('Error loading routes:', error);
+            routeFilter.parentElement.style.display = 'none';
+        }
+    },
+
+    /**
+     * Handle search input: a bus number selects that line, anything else filters by name
      * @param {string} query - Search text
      */
-    filterStops(query) {
-        if (!query || query.trim() === '') {
-            // Show all stops if search is empty
-            this.renderStops(this.stops);
+    onSearchInput(query) {
+        const term = query.trim().toLowerCase();
+
+        if (term !== '') {
+            // Only jump when the number is unambiguous (e.g. "10" could still become "100")
+            const candidates = this.routes.filter(r => r.nameShort.toLowerCase().startsWith(term));
+            if (candidates.length === 1 && candidates[0].nameShort.toLowerCase() === term) {
+                document.getElementById('searchInput').value = '';
+                this.setRouteFilter(candidates[0].id);
+                return;
+            }
+        }
+
+        this.applyFilters();
+    },
+
+    /**
+     * Set (or clear) the active bus line filter
+     * @param {string|null} routeId - Route ID, or null to show all stops
+     */
+    async setRouteFilter(routeId) {
+        const requestId = ++this.routeFilterRequest;
+        document.getElementById('routeFilter').value = routeId || '';
+
+        if (routeId && !this.routeStopsCache[routeId]) {
+            this.showLoading('stopList', 'A carregar paragens da linha...');
+            document.getElementById('routeFilterInfo').innerHTML = '';
+
+            try {
+                this.routeStopsCache[routeId] = await MaveAPI.getRouteStops(routeId);
+                this.hideConnectionError();
+            } catch (error) {
+                if (requestId !== this.routeFilterRequest) return;
+                console.error('Error loading route stops:', error);
+                this.selectedRouteId = null;
+                document.getElementById('routeFilter').value = '';
+                this.showError('stopList', `
+                    <p>Não foi possível carregar as paragens desta linha.</p>
+                    <button class="btn btn-primary btn-sm mt-2" onclick="App.setRouteFilter('${this.escapeHTML(routeId)}')">
+                        Tentar novamente
+                    </button>
+                `);
+                return;
+            }
+        }
+
+        // Ignore stale responses if the user picked another line meanwhile
+        if (requestId !== this.routeFilterRequest) return;
+
+        this.selectedRouteId = routeId;
+        this.applyFilters();
+    },
+
+    /**
+     * Apply bus line filter and search text, then render
+     */
+    applyFilters() {
+        let stops = this.stops;
+
+        // Bus line filter: only that line's stops, in route order
+        if (this.selectedRouteId && this.routeStopsCache[this.selectedRouteId]) {
+            stops = this.routeStopsCache[this.selectedRouteId]
+                .map(id => this.stopsById.get(id))
+                .filter(Boolean);
+        }
+
+        this.renderRouteFilterInfo(stops.length);
+
+        const query = document.getElementById('searchInput').value;
+        const searchTerm = query.toLowerCase().trim();
+
+        if (searchTerm !== '') {
+            stops = stops.filter(stop => {
+                return stop.name.toLowerCase().includes(searchTerm) ||
+                       stop.nameShort.toLowerCase().includes(searchTerm);
+            });
+        }
+
+        this.renderStops(stops);
+    },
+
+    /**
+     * Render the header shown while a bus line filter is active
+     * @param {number} stopCount - Number of stops on the line
+     */
+    renderRouteFilterInfo(stopCount) {
+        const container = document.getElementById('routeFilterInfo');
+        const route = this.routes.find(r => r.id === this.selectedRouteId);
+
+        if (!route) {
+            container.innerHTML = '';
             return;
         }
 
-        const searchTerm = query.toLowerCase().trim();
-        const filtered = this.stops.filter(stop => {
-            return stop.name.toLowerCase().includes(searchTerm) ||
-                   stop.nameShort.toLowerCase().includes(searchTerm);
-        });
+        container.innerHTML = `
+            <div class="d-flex align-items-center justify-content-between route-filter-info">
+                <div>
+                    <span class="badge" style="background-color: #${route.color || '6c757d'}">
+                        ${this.escapeHTML(route.nameShort)}
+                    </span>
+                    <span class="ms-2 small">${this.escapeHTML(route.name)}</span>
+                    <span class="ms-2 small text-muted">• ${stopCount} paragens</span>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary" id="clearRouteFilterBtn" aria-label="Remover filtro de linha">✕</button>
+            </div>
+        `;
 
-        this.renderStops(filtered);
+        document.getElementById('clearRouteFilterBtn').addEventListener('click', () => {
+            this.setRouteFilter(null);
+        });
     },
 
     /**
@@ -106,12 +245,16 @@ const App = {
             return;
         }
 
+        const favoriteIds = new Set(Storage.getFavorites().map(s => s.id));
+
         // Create list group
         const listHTML = stops.map(stop => `
             <a href="#" class="list-group-item list-group-item-action" data-stop-id="${stop.id}">
                 <div class="d-flex w-100 justify-content-between align-items-center">
                     <div>
-                        <h6 class="mb-1">${this.escapeHTML(stop.name)}</h6>
+                        <h6 class="mb-1">
+                            ${favoriteIds.has(stop.id) ? '<span class="favorite-mark" title="Favorito">★</span> ' : ''}${this.escapeHTML(stop.name)}
+                        </h6>
                         <small class="text-muted">${this.escapeHTML(stop.nameShort)}</small>
                     </div>
                     <span class="badge bg-primary rounded-pill">›</span>
@@ -142,59 +285,59 @@ const App = {
         this.currentStop = stop;
         console.log('Selected stop:', stop);
 
-        // Save to recent stops history
-        Storage.saveRecentStop(stop);
-
         // Load and show stop details
         await this.loadStopDetails();
     },
 
     /**
-     * Render recent stops
+     * Render favorite stops
      */
-    renderRecentStops() {
-        const recentStops = Storage.getRecentStops();
-        const recentContainer = document.getElementById('recentStops');
+    renderFavorites() {
+        const favorites = Storage.getFavorites();
+        const favoritesContainer = document.getElementById('favoriteStops');
 
-        if (recentStops.length === 0) {
-            recentContainer.innerHTML = '';
+        if (favorites.length === 0) {
+            favoritesContainer.innerHTML = `
+                <p class="small text-muted mb-0">
+                    ⭐ Toque na estrela de uma paragem para a guardar nos favoritos.
+                </p>
+            `;
             return;
         }
 
-        const recentHTML = `
+        favoritesContainer.innerHTML = `
             <div class="mb-3">
-                <h6 class="text-muted mb-2">Recentes</h6>
+                <h6 class="text-muted mb-2">⭐ Favoritos</h6>
                 <div class="d-flex flex-wrap gap-2">
-                    ${recentStops.map(stop => `
-                        <button class="btn btn-sm btn-outline-primary recent-stop-btn" data-stop-id="${stop.id}">
-                            ${this.escapeHTML(stop.nameShort)}
+                    ${favorites.map(stop => `
+                        <button class="btn btn-sm btn-outline-primary favorite-stop-btn" data-stop-id="${stop.id}">
+                            ${this.escapeHTML(stop.name)}
                         </button>
                     `).join('')}
-                    <button class="btn btn-sm btn-outline-danger" id="clearHistoryBtn">
-                        Limpar
-                    </button>
                 </div>
             </div>
         `;
 
-        recentContainer.innerHTML = recentHTML;
-
-        // Add click handlers for recent stops
-        recentContainer.querySelectorAll('.recent-stop-btn').forEach(btn => {
+        // Add click handlers for favorite stops
+        favoritesContainer.querySelectorAll('.favorite-stop-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const stopId = btn.getAttribute('data-stop-id');
                 this.selectStop(stopId);
             });
         });
+    },
 
-        // Add click handler for clear button
-        const clearBtn = document.getElementById('clearHistoryBtn');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => {
-                Storage.clearRecentStops();
-                this.renderRecentStops();
-            });
-        }
+    /**
+     * Update the favorite toggle button in the stop detail view
+     */
+    renderFavoriteToggle() {
+        const btn = document.getElementById('favoriteToggle');
+        if (!btn || !this.currentStop) return;
+
+        const isFavorite = Storage.isFavorite(this.currentStop.id);
+        btn.classList.toggle('active', isFavorite);
+        btn.innerHTML = isFavorite ? '★ Remover dos favoritos' : '☆ Adicionar aos favoritos';
+        btn.setAttribute('aria-pressed', isFavorite ? 'true' : 'false');
     },
 
     /**
@@ -210,12 +353,16 @@ const App = {
         document.getElementById('stopListView').style.display = 'block';
         document.getElementById('stopDetailView').style.display = 'none';
 
-        // Refresh recent stops (in case they were updated)
-        this.renderRecentStops();
+        // Refresh favorites (in case they were updated)
+        this.renderFavorites();
 
-        // Clear search
+        // Clear search text but keep the bus line filter
         document.getElementById('searchInput').value = '';
-        this.renderStops(this.stops);
+
+        // Keep the load error / retry button visible if stops failed to load
+        if (this.stops.length > 0) {
+            this.applyFilters();
+        }
     },
 
     /**
@@ -239,9 +386,16 @@ const App = {
                 <div class="card-body">
                     <h5 class="card-title">${this.escapeHTML(this.currentStop.name)}</h5>
                     <p class="card-text text-muted">${this.escapeHTML(this.currentStop.nameShort)}</p>
+                    <button id="favoriteToggle" class="btn btn-sm btn-outline-warning favorite-toggle" aria-pressed="false"></button>
                 </div>
             </div>
         `;
+
+        this.renderFavoriteToggle();
+        document.getElementById('favoriteToggle').addEventListener('click', () => {
+            Storage.toggleFavorite(this.currentStop);
+            this.renderFavoriteToggle();
+        });
 
         // Load routes and live data
         await this.refreshStopData();
@@ -381,8 +535,14 @@ const App = {
             return;
         }
 
-        // Sort routes by nameShort (route number)
+        // Sort routes by nameShort (route number), filtered bus line first
         routes.sort((a, b) => {
+            if (this.selectedRouteId) {
+                const selA = a.id === this.selectedRouteId;
+                const selB = b.id === this.selectedRouteId;
+                if (selA !== selB) return selA ? -1 : 1;
+            }
+
             const numA = parseInt(a.nameShort) || 0;
             const numB = parseInt(b.nameShort) || 0;
             return numA - numB;
