@@ -95,6 +95,7 @@ git push origin main           # redeploys the previous behavior
 | Bus line dropdown missing | `/routes` request failed. The rest of the app still works, so reload later |
 | Deploy failed in Actions | Open the failed run for details, fix, commit and push again |
 | Location never asked / "Permissão negada" | iPhone: Settings → Privacy → Location Services → Safari Websites → *While Using*. Chrome: 🔒 icon in the address bar → Location → Allow. Then tap **Tentar novamente** |
+| Android: "Não foi possível determinar a sua localização" | Turn on device location (swipe down → **Localização**), and in Settings → Location → Location services enable **Google Location Accuracy** so Wi-Fi/network location works indoors. Then tap **Tentar novamente** |
 | Map is grey (no tiles) | OpenStreetMap tiles are blocked by an ad blocker, or you're offline. The stop list still works |
 | Map doesn't appear at all | The jsdelivr CDN (Leaflet) is unreachable. The stop list still works without the map |
 | Tabs don't work after a deploy | Stale cached JS: hard refresh, and check the `?v=` numbers were bumped in `index.html` |

@@ -12,30 +12,66 @@ const Geo = {
      * @param {boolean} fresh - Skip the browser's cached position
      * @returns {Promise<{lat: number, lon: number, accuracy: number}>}
      */
-    getPosition(fresh = false) {
-        return new Promise((resolve, reject) => {
-            if (!('geolocation' in navigator)) {
-                reject(new Error('O seu navegador não suporta geolocalização.'));
-                return;
-            }
+    async getPosition(fresh = false) {
+        if (!('geolocation' in navigator)) {
+            throw new Error('O seu navegador não suporta geolocalização.');
+        }
 
+        try {
+            // Try GPS first
+            return await this.requestPosition({
+                enableHighAccuracy: true,
+                maximumAge: fresh ? 0 : 60000,
+                timeout: 10000
+            });
+        } catch (error) {
+            // Permission denied: retrying won't help
+            if (error.code === 1) throw this.positionError(error);
+
+            // GPS unavailable or too slow (common indoors on Android): fall back to Wi-Fi/network location
+            try {
+                return await this.requestPosition({
+                    enableHighAccuracy: false,
+                    maximumAge: 300000,
+                    timeout: 15000
+                });
+            } catch (fallbackError) {
+                throw this.positionError(fallbackError);
+            }
+        }
+    },
+
+    /**
+     * Promise wrapper around getCurrentPosition
+     * @param {object} options - PositionOptions
+     * @returns {Promise<{lat: number, lon: number, accuracy: number}>}
+     */
+    requestPosition(options) {
+        return new Promise((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(
                 (pos) => resolve({
                     lat: pos.coords.latitude,
                     lon: pos.coords.longitude,
                     accuracy: pos.coords.accuracy
                 }),
-                (error) => {
-                    const messages = {
-                        1: 'Permissão de localização negada. Ative-a nas definições do navegador.',
-                        2: 'Não foi possível determinar a sua localização.',
-                        3: 'A obtenção da localização demorou demasiado.'
-                    };
-                    reject(new Error(messages[error.code] || 'Erro ao obter a localização.'));
-                },
-                { enableHighAccuracy: true, maximumAge: fresh ? 0 : 60000, timeout: 10000 }
+                reject,
+                options
             );
         });
+    },
+
+    /**
+     * Turn a GeolocationPositionError into a user-facing message
+     * @param {GeolocationPositionError} error
+     * @returns {Error}
+     */
+    positionError(error) {
+        const messages = {
+            1: 'Permissão de localização negada. Ative-a nas definições do navegador (ícone 🔒 junto ao endereço → Localização → Permitir).',
+            2: 'Não foi possível determinar a sua localização. Verifique se a localização do telemóvel está ligada (Definições → Localização) e tente novamente.',
+            3: 'A obtenção da localização demorou demasiado. Verifique se a localização do telemóvel está ligada e tente novamente.'
+        };
+        return new Error(messages[error.code] || 'Erro ao obter a localização.');
     },
 
     /**
