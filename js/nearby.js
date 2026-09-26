@@ -16,6 +16,8 @@ const Nearby = {
     visibleCount: 100,
     renderTimer: null,
     needsFit: false,     // Map was rendered while hidden
+    fitMode: 'nearest',  // 'nearest' after a location fix, 'radius' after moving the slider
+    NEAREST_FIT_COUNT: 8, // Stops kept in view on the first (closer) zoom
 
     // Leaflet objects
     map: null,
@@ -58,6 +60,7 @@ const Nearby = {
             // Debounce the heavier list/map re-render while dragging
             clearTimeout(this.renderTimer);
             this.renderTimer = setTimeout(() => {
+                this.fitMode = 'radius';
                 this.visibleCount = this.PAGE_SIZE;
                 this.render();
                 this.saveRadius();
@@ -127,6 +130,7 @@ const Nearby = {
             }
 
             this.computeDistances();
+            this.fitMode = 'nearest';
             this.visibleCount = this.PAGE_SIZE;
             this.render();
             this.renderUpdated();
@@ -260,7 +264,8 @@ const Nearby = {
         container.style.display = 'block';
 
         const center = [this.position.lat, this.position.lon];
-        this.map = L.map(container, { preferCanvas: true }).setView(center, 14);
+        // Fractional zoom lets fitBounds fill the map instead of rounding down a whole level
+        this.map = L.map(container, { preferCanvas: true, zoomSnap: 0.25 }).setView(center, 16);
 
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -344,7 +349,8 @@ const Nearby = {
     },
 
     /**
-     * Zoom the map so the whole radius circle is visible
+     * Zoom the map: close-up on the user and the nearest stops after a location fix,
+     * or the whole radius circle after the slider moves
      */
     fitToRadius() {
         // A hidden container has no size; fit again when the tab is shown
@@ -353,7 +359,21 @@ const Nearby = {
             return;
         }
         this.needsFit = false;
-        this.map.fitBounds(this.radiusCircle.getBounds(), { padding: [10, 10] });
+
+        if (this.fitMode === 'radius') {
+            this.map.fitBounds(this.radiusCircle.getBounds(), { padding: [10, 10] });
+            return;
+        }
+
+        const center = [this.position.lat, this.position.lon];
+        const nearest = this.sortedStops.slice(0, Math.min(this.countInRadius(), this.NEAREST_FIT_COUNT));
+        if (nearest.length === 0) {
+            this.map.setView(center, 16);
+            return;
+        }
+
+        const bounds = L.latLngBounds([center, ...nearest.map(({ stop }) => [stop.position.lat, stop.position.lon])]);
+        this.map.fitBounds(bounds, { padding: [30, 30], maxZoom: 17 });
     },
 
     /**
