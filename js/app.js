@@ -11,6 +11,8 @@ const App = {
     routeFilterRequest: 0, // Guards against out-of-order route loads
     currentStop: null,   // Currently selected stop
     refreshInterval: null, // Auto-refresh interval ID
+    activeTab: 'stops',  // 'stops' or 'nearby'
+    stopsReady: null,    // Promise for the initial stops load (used by Nearby)
 
     /**
      * Initialize the application
@@ -25,7 +27,8 @@ const App = {
         this.setupEventListeners();
 
         // Load stops and bus lines from API
-        await Promise.all([this.loadStops(), this.loadRoutes()]);
+        this.stopsReady = this.loadStops();
+        await Promise.all([this.stopsReady, this.loadRoutes()]);
 
         // Show stop list view
         this.showStopListView();
@@ -52,6 +55,22 @@ const App = {
         backButton.addEventListener('click', () => {
             this.showStopListView();
         });
+
+        // Main tabs
+        document.querySelectorAll('#mainTabs [data-tab]').forEach(tab => {
+            tab.addEventListener('click', () => {
+                this.showTab(tab.getAttribute('data-tab'));
+            });
+        });
+    },
+
+    /**
+     * Switch between the main tabs
+     * @param {string} name - 'stops' or 'nearby'
+     */
+    showTab(name) {
+        this.activeTab = name;
+        this.showStopListView();
     },
 
     /**
@@ -341,7 +360,7 @@ const App = {
     },
 
     /**
-     * Show stop list view
+     * Show the active tab (stop list or nearby stops)
      */
     showStopListView() {
         // Clear refresh interval when leaving detail view
@@ -350,8 +369,22 @@ const App = {
             this.refreshInterval = null;
         }
 
-        document.getElementById('stopListView').style.display = 'block';
+        const isNearby = this.activeTab === 'nearby';
+        document.getElementById('mainTabs').style.display = '';
+        document.getElementById('stopListView').style.display = isNearby ? 'none' : 'block';
+        document.getElementById('nearbyView').style.display = isNearby ? 'block' : 'none';
         document.getElementById('stopDetailView').style.display = 'none';
+
+        document.querySelectorAll('#mainTabs [data-tab]').forEach(tab => {
+            const active = tab.getAttribute('data-tab') === this.activeTab;
+            tab.classList.toggle('active', active);
+            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+
+        if (isNearby) {
+            Nearby.show();
+            return;
+        }
 
         // Refresh favorites (in case they were updated)
         this.renderFavorites();
@@ -370,7 +403,9 @@ const App = {
      */
     async loadStopDetails() {
         // Switch to detail view
+        document.getElementById('mainTabs').style.display = 'none';
         document.getElementById('stopListView').style.display = 'none';
+        document.getElementById('nearbyView').style.display = 'none';
         document.getElementById('stopDetailView').style.display = 'block';
 
         // Clear any existing refresh interval

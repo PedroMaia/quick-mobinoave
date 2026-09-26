@@ -11,7 +11,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=2">
 </head>
 <body>
     <div class="container py-4">
@@ -29,6 +29,16 @@
             <p class="mb-0 small">Não foi possível conectar ao servidor. Verifique sua conexão à internet.</p>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
         </div>
+
+        <!-- Main tabs -->
+        <ul class="nav nav-pills nav-fill mb-3 main-tabs" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button type="button" class="nav-link active" data-tab="stops" role="tab" aria-selected="true">🚏 Paragens</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button type="button" class="nav-link" data-tab="nearby" role="tab" aria-selected="false">📍 Perto de mim</button>
+            </li>
+        </ul>
 
         <!-- Main View: Stop List -->
         <div id="stopListView">
@@ -54,6 +64,37 @@
             <div id="stopList"></div>
         </div>
 
+        <!-- Nearby View: stops within a radius of the user (hidden initially) -->
+        <div id="nearbyView" style="display: none;">
+            <!-- Radius slider -->
+            <div class="nearby-panel mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label for="radiusSlider" class="nearby-label mb-0">
+                        <span class="nearby-dot"></span> Raio de alcance
+                    </label>
+                    <span id="radiusValue" class="radius-value">2 km</span>
+                </div>
+                <input type="range" class="form-range" id="radiusSlider" min="200" max="5000" step="100" value="2000">
+                <div class="d-flex justify-content-between small text-muted">
+                    <span>200 m (~3 min a pé)</span>
+                    <span>5 km (~60 min a pé)</span>
+                </div>
+            </div>
+
+            <!-- Map (shown once Leaflet has loaded) -->
+            <div id="nearbyMap" class="nearby-map mb-3" style="display: none;"></div>
+
+            <!-- Result count and list -->
+            <div id="nearbyCount" class="nearby-count mb-2"></div>
+            <div id="nearbyList"></div>
+
+            <!-- Footer -->
+            <div class="nearby-footer d-flex justify-content-between align-items-center mt-3">
+                <small id="nearbyUpdated" class="text-muted"></small>
+                <button id="relocateBtn" type="button" class="btn btn-sm btn-outline-primary">📍 Atualizar localização</button>
+            </div>
+        </div>
+
         <!-- Stop Detail View (hidden initially) -->
         <div id="stopDetailView" style="display: none;">
             <!-- Back button -->
@@ -71,8 +112,11 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- App Scripts -->
-    <script src="js/api.js"></script>
-    <script src="js/storage.js"></script>
-    <script src="js/app.js"></script>
+    <!-- Bump ?v= whenever a JS/CSS file changes so GitHub Pages visitors don't get stale cached files -->
+    <script src="js/api.js?v=2"></script>
+    <script src="js/storage.js?v=2"></script>
+    <script src="js/geo.js?v=2"></script>
+    <script src="js/nearby.js?v=2"></script>
+    <script src="js/app.js?v=2"></script>
 </body>
 </html>
