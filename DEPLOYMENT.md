@@ -37,9 +37,17 @@ Go through this checklist locally (use DevTools → responsive mode at ~375px fo
 - [ ] ☆ on a stop adds it to **Favoritos**; ★ removes it
 - [ ] Favorites survive a page reload
 - [ ] Live countdowns appear (during service hours) and refresh every 20s
+- [ ] Page load does not request Leaflet (DevTools → Network)
+- [ ] **Perto de mim** asks for location, then shows the map, a 2 km circle and the nearby stops sorted by distance (fake a location in DevTools → Sensors, e.g. Guimarães `41.4425, -8.2918`)
+- [ ] Moving the radius slider updates the label immediately and the list/map/count smoothly
+- [ ] Opening a stop from the nearby list or a map popup, then **← Voltar**, returns to **Perto de mim**
+- [ ] Denying location shows an error with **Tentar novamente**; the **Paragens** tab still works
 - [ ] No errors in the DevTools console
 
 ## Step 4 — Commit your changes
+
+> **Changed a JS or CSS file?** Bump the `?v=` number on its `<script>`/`<link>` tag in `index.html` (e.g. `?v=2` → `?v=3`).
+> GitHub Pages caches assets for ~10 minutes; without the bump, visitors can get the new `index.html` with an old `app.js`.
 
 ```bash
 git status                     # review what changed
@@ -58,6 +66,7 @@ git push origin main
 1. Open the repository on GitHub → **Settings** → **Pages**
 2. **Source**: *Deploy from a branch*
 3. **Branch**: `main`, folder `/ (root)` → **Save**
+4. Tick **Enforce HTTPS**. The **Perto de mim** tab needs HTTPS: browsers block location on `http://`
 
 ## Step 7 — Confirm the deploy
 
@@ -66,6 +75,7 @@ git push origin main
 3. Open https://pedromaia.github.io/quick-mobinoave/
 4. Hard refresh to bypass the cache: **Cmd+Shift+R** (macOS) / **Ctrl+Shift+R** (Windows/Linux)
 5. Quickly repeat the key checks from Step 3 on the live site (desktop and phone)
+6. On a phone, open **Perto de mim**, allow location and confirm the map tiles, your blue dot and the nearby stops appear
 
 ## Step 8 — Rollback (if something breaks)
 
@@ -84,11 +94,16 @@ git push origin main           # redeploys the previous behavior
 | "Erro de conexão" / no stops | The MAVE API (`https://mave.elevensystems.pt/api`) may be down. Test it directly in the browser |
 | Bus line dropdown missing | `/routes` request failed. The rest of the app still works, so reload later |
 | Deploy failed in Actions | Open the failed run for details, fix, commit and push again |
+| Location never asked / "Permissão negada" | iPhone: Settings → Privacy → Location Services → Safari Websites → *While Using*. Chrome: 🔒 icon in the address bar → Location → Allow. Then tap **Tentar novamente** |
+| Map is grey (no tiles) | OpenStreetMap tiles are blocked by an ad blocker, or you're offline. The stop list still works |
+| Map doesn't appear at all | The jsdelivr CDN (Leaflet) is unreachable. The stop list still works without the map |
+| Tabs don't work after a deploy | Stale cached JS: hard refresh, and check the `?v=` numbers were bumped in `index.html` |
 
 ---
 
 ## Tech Stack
 - HTML5, CSS3, JavaScript (ES6+)
 - Bootstrap 5 (CDN)
+- Leaflet 1.9.4 (jsdelivr CDN, lazy-loaded) + OpenStreetMap tiles
 - MAVE API: https://mave.elevensystems.pt/api
 - Hosting: GitHub Pages
