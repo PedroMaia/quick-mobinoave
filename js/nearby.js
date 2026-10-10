@@ -296,7 +296,13 @@ const Nearby = {
             if (link) link.addEventListener('click', (ev) => this.handleStopClick(ev));
         });
 
+        // Own pane + canvas so stop re-renders (shared canvas, painted in add order) never cover the dot
+        this.map.createPane('userPane');
+        this.map.getPane('userPane').style.zIndex = 450;
+
         this.userMarker = L.circleMarker(center, {
+            pane: 'userPane',
+            renderer: L.canvas({ pane: 'userPane' }),
             radius: 8,
             color: '#fff',
             weight: 3,
