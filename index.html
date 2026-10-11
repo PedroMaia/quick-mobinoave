@@ -16,7 +16,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css?v=3">
+    <link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
     <div class="container py-4">
@@ -95,14 +95,20 @@
             <!-- Map (shown once Leaflet has loaded) -->
             <div id="nearbyMap" class="nearby-map mb-3" style="display: none;"></div>
 
+            <!-- Hint / warning line (filled by Nearby.setNotice) -->
+            <div id="nearbyNotice" class="nearby-notice mb-2"></div>
+
             <!-- Result count and list -->
             <div id="nearbyCount" class="nearby-count mb-2"></div>
             <div id="nearbyList"></div>
 
             <!-- Footer -->
-            <div class="nearby-footer d-flex justify-content-between align-items-center mt-3">
+            <div class="nearby-footer d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
                 <small id="nearbyUpdated" class="text-muted"></small>
-                <button id="relocateBtn" type="button" class="btn btn-sm btn-outline-primary">📍 Atualizar localização</button>
+                <div class="d-flex flex-wrap gap-2">
+                    <button id="pickOnMapBtn" type="button" class="btn btn-sm btn-outline-secondary">🗺️ Escolher no mapa</button>
+                    <button id="relocateBtn" type="button" class="btn btn-sm btn-outline-primary">📍 Atualizar localização</button>
+                </div>
             </div>
         </div>
 
@@ -151,8 +157,8 @@
     <!-- Bump ?v= whenever a JS/CSS file changes so GitHub Pages visitors don't get stale cached files -->
     <script src="js/api.js?v=3"></script>
     <script src="js/storage.js?v=3"></script>
-    <script src="js/geo.js?v=5"></script>
-    <script src="js/nearby.js?v=4"></script>
+    <script src="js/geo.js?v=6"></script>
+    <script src="js/nearby.js?v=5"></script>
     <script src="js/busmap.js?v=1"></script>
     <script src="js/alerts.js?v=1"></script>
     <script src="js/app.js?v=3"></script>

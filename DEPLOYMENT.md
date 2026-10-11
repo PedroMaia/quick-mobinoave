@@ -41,7 +41,8 @@ Go through this checklist locally (use DevTools → responsive mode at ~375px fo
 - [ ] **Perto de mim** asks for location, then shows the map, a 2 km circle and the nearby stops sorted by distance (fake a location in DevTools → Sensors, e.g. Guimarães `41.4425, -8.2918`)
 - [ ] Moving the radius slider updates the label immediately and the list/map/count smoothly
 - [ ] Opening a stop from the nearby list or a map popup, then **← Voltar**, returns to **Perto de mim**
-- [ ] Denying location shows an error with **Tentar novamente**; the **Paragens** tab still works
+- [ ] Denying location shows an error with **Tentar novamente** and **Escolher no mapa**; the **Paragens** tab still works
+- [ ] **Escolher no mapa** → tap the map: blue dot, circle, list and count appear for that point; after a reload it's reused with a warning line
 - [ ] In a stop, **🔔 Avisar-me** opens the dialog; **Ativar alerta** asks for notification permission and shows the alert in **Alertas ativos**
 - [ ] An alert with minutes ≥ the live countdown fires right away (notification + banner + beep), then disappears from the bar
 - [ ] Tapping the notification opens that stop; ✕ in the bar cancels an alert
@@ -111,6 +112,7 @@ git push origin main           # redeploys the previous behavior
 | Deploy failed in Actions | Open the failed run for details, fix, commit and push again |
 | Location never asked / "Permissão negada" | iPhone: Settings → Privacy → Location Services → Safari Websites → *While Using*. Chrome: 🔒 icon in the address bar → Location → Allow. Then tap **Tentar novamente** |
 | Android: "Não foi possível determinar a sua localização" | Turn on device location (swipe down → **Localização**), and in Settings → Location → Location services enable **Google Location Accuracy** so Wi-Fi/network location works indoors. Then tap **Tentar novamente** |
+| Google Maps can't find you either | The phone isn't giving any app a location (setting or hardware). Tap **🗺️ Escolher no mapa** and tap where you are; the app remembers it and uses it whenever GPS fails |
 | Map is grey (no tiles) | OpenStreetMap tiles are blocked by an ad blocker, or you're offline. The stop list still works |
 | Map doesn't appear at all | The jsdelivr CDN (Leaflet) is unreachable. The stop list still works without the map |
 | Tabs don't work after a deploy | Stale cached JS: hard refresh, and check the `?v=` numbers were bumped in `index.html` |

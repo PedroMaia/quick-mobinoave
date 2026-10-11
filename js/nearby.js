@@ -7,10 +7,15 @@ const Nearby = {
     DEFAULT_RADIUS: 2000,
     PAGE_SIZE: 100,      // Rows rendered per "Mostrar mais"
     RADIUS_KEY: 'mave_nearby_radius',
+    MANUAL_KEY: 'mave_nearby_manual', // Position picked on the map (fallback when GPS fails)
+    REGION_CENTER: [41.40, -8.42],    // Santo Tirso / Famalicão / Guimarães
+    REGION_ZOOM: 11,
 
     initialized: false,
     locating: false,
-    position: null,      // { lat, lon, accuracy }
+    picking: false,      // Waiting for a tap on the map
+    pickHandler: null,   // Map click listener while picking
+    position: null,      // { lat, lon, accuracy, manual? }
     radius: 2000,        // Meters
     sortedStops: [],     // [{ stop, dist }] within MAX_RADIUS, nearest first
     visibleCount: 100,
@@ -71,6 +76,10 @@ const Nearby = {
             this.locate(true);
         });
 
+        document.getElementById('pickOnMapBtn').addEventListener('click', () => {
+            this.pickOnMap();
+        });
+
         // Delegated clicks: list rows and "show more"
         document.getElementById('nearbyList').addEventListener('click', (e) => {
             if (e.target.closest('#nearbyMoreBtn')) {
@@ -102,9 +111,12 @@ const Nearby = {
     async locate(fresh = false) {
         if (this.locating) return;
         this.locating = true;
+        this.cancelPicking();
 
         const relocateBtn = document.getElementById('relocateBtn');
+        const pickOnMapBtn = document.getElementById('pickOnMapBtn');
         relocateBtn.disabled = true;
+        pickOnMapBtn.disabled = true;
 
         // Start loading the map library in parallel; the list doesn't wait for it
         const leaflet = Geo.loadLeaflet().catch(error => {
@@ -118,17 +130,21 @@ const Nearby = {
         }
 
         try {
-            this.position = await Geo.getPosition(fresh);
-
-            // Stops are loaded by App.init(); retry if that load failed
-            await App.stopsReady;
-            if (App.stops.length === 0) {
-                await App.loadStops();
+            let usingSaved = false;
+            try {
+                this.position = await Geo.getPosition(fresh);
+            } catch (geoError) {
+                // GPS failed: fall back to the position picked on the map earlier
+                const saved = this.loadManualPosition();
+                if (!saved) throw geoError;
+                console.error('Location unavailable, using the position picked on the map:', geoError);
+                this.position = saved;
+                usingSaved = true;
             }
-            if (App.stops.length === 0) {
-                throw new Error('Não foi possível carregar as paragens.');
-            }
 
+            await this.ensureStops();
+
+            this.setNotice(usingSaved ? '⚠️ Localização GPS indisponível — a usar a posição escolhida no mapa.' : '', 'warning');
             this.computeDistances();
             this.fitMode = 'nearest';
             this.visibleCount = this.PAGE_SIZE;
@@ -137,23 +153,123 @@ const Nearby = {
 
             const L = await leaflet;
             if (L) {
-                if (!this.map) this.initMap(L);
+                if (!this.map) this.initMap(L, [this.position.lat, this.position.lon], 16);
                 this.updateUserMarker();
                 this.renderMap();
             }
         } catch (error) {
             console.error('Error locating nearby stops:', error);
             document.getElementById('nearbyCount').textContent = '';
+            this.setNotice('');
             App.showError('nearbyList', `
                 <p>${App.escapeHTML(error.message)}</p>
                 <button class="btn btn-primary btn-sm mt-2" onclick="Nearby.locate()">
                     Tentar novamente
                 </button>
+                <button class="btn btn-outline-primary btn-sm mt-2 ms-1" onclick="Nearby.pickOnMap()">
+                    🗺️ Escolher no mapa
+                </button>
             `);
         } finally {
             this.locating = false;
             relocateBtn.disabled = false;
+            pickOnMapBtn.disabled = false;
         }
+    },
+
+    /**
+     * Stops are loaded by App.init(); retry if that load failed
+     */
+    async ensureStops() {
+        await App.stopsReady;
+        if (App.stops.length === 0) {
+            await App.loadStops();
+        }
+        if (App.stops.length === 0) {
+            throw new Error('Não foi possível carregar as paragens.');
+        }
+    },
+
+    /**
+     * Let the user tap their position on the map (when GPS isn't available)
+     */
+    async pickOnMap() {
+        if (this.picking || this.locating) return;
+        this.picking = true;
+        this.setNotice('👆 Toque no mapa onde está.', 'hint');
+
+        let L;
+        try {
+            [L] = await Promise.all([Geo.loadLeaflet(), this.ensureStops()]);
+        } catch (error) {
+            console.error('Error opening the map to pick a position:', error);
+            this.picking = false;
+            this.setNotice('');
+            App.showError('nearbyList', `<p>${App.escapeHTML(error.message)}</p>`);
+            return;
+        }
+        if (!this.picking) return; // Cancelled by "Atualizar localização" meanwhile
+
+        if (!this.map) {
+            const start = this.position || this.loadManualPosition();
+            if (start) {
+                this.initMap(L, [start.lat, start.lon], 16);
+            } else {
+                this.initMap(L, this.REGION_CENTER, this.REGION_ZOOM);
+            }
+        }
+
+        const container = this.map.getContainer();
+        container.classList.add('picking');
+        this.map.invalidateSize();
+        container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        this.pickHandler = (e) => {
+            this.cancelPicking();
+            this.setManualPosition(e.latlng);
+        };
+        this.map.once('click', this.pickHandler);
+    },
+
+    /**
+     * Stop waiting for a tap on the map
+     */
+    cancelPicking() {
+        if (!this.picking) return;
+        this.picking = false;
+        if (this.map) {
+            if (this.pickHandler) this.map.off('click', this.pickHandler);
+            this.map.getContainer().classList.remove('picking');
+        }
+        this.pickHandler = null;
+        this.setNotice('');
+    },
+
+    /**
+     * Use a position picked on the map, and remember it for next time
+     * @param {object} latlng - Leaflet LatLng
+     */
+    setManualPosition(latlng) {
+        this.position = { lat: latlng.lat, lon: latlng.lng, accuracy: 0, manual: true };
+        this.saveManualPosition();
+
+        this.computeDistances();
+        this.fitMode = 'nearest';
+        this.visibleCount = this.PAGE_SIZE;
+        this.updateUserMarker(); // Before render: the radius circle must be on the map to be measured
+        this.render();
+        this.renderUpdated();
+    },
+
+    /**
+     * Hint or warning line above the list ('' hides it)
+     * @param {string} text
+     * @param {string} kind - 'hint' or 'warning'
+     */
+    setNotice(text, kind = 'hint') {
+        const notice = document.getElementById('nearbyNotice');
+        notice.className = `nearby-notice nearby-notice-${kind} mb-2`;
+        notice.textContent = text;
     },
 
     /**
@@ -256,16 +372,18 @@ const Nearby = {
     },
 
     /**
-     * Create the Leaflet map (canvas renderer keeps many markers fast)
+     * Create the Leaflet map (canvas renderer keeps many markers fast).
+     * The position layers are added by updateUserMarker() once there is a position.
      * @param {object} L - Leaflet global
+     * @param {Array<number>} center - [lat, lon]
+     * @param {number} zoom
      */
-    initMap(L) {
+    initMap(L, center, zoom) {
         const container = document.getElementById('nearbyMap');
         container.style.display = 'block';
 
-        const center = [this.position.lat, this.position.lon];
         // Fractional zoom lets fitBounds fill the map instead of rounding down a whole level
-        this.map = L.map(container, { preferCanvas: true, zoomSnap: 0.25 }).setView(center, 16);
+        this.map = L.map(container, { preferCanvas: true, zoomSnap: 0.25 }).setView(center, zoom);
 
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -278,15 +396,15 @@ const Nearby = {
             weight: 1.5,
             fillOpacity: 0.06,
             interactive: false
-        }).addTo(this.map);
+        });
 
         this.accuracyCircle = L.circle(center, {
-            radius: this.position.accuracy || 0,
+            radius: 0,
             stroke: false,
             fillColor: '#0d6efd',
             fillOpacity: 0.15,
             interactive: false
-        }).addTo(this.map);
+        });
 
         this.stopsLayer = L.layerGroup().addTo(this.map);
 
@@ -308,18 +426,22 @@ const Nearby = {
             weight: 3,
             fillColor: '#0d6efd',
             fillOpacity: 1
-        }).bindTooltip('Está aqui').addTo(this.map);
+        }).bindTooltip('Está aqui');
     },
 
     /**
-     * Move the "you are here" marker to the current position
+     * Move the "you are here" marker to the current position (adding it on the first fix)
      */
     updateUserMarker() {
-        if (!this.map) return;
+        if (!this.map || !this.position) return;
         const center = [this.position.lat, this.position.lon];
         this.userMarker.setLatLng(center);
         this.accuracyCircle.setLatLng(center).setRadius(this.position.accuracy || 0);
         this.radiusCircle.setLatLng(center);
+
+        [this.radiusCircle, this.accuracyCircle, this.userMarker].forEach(layer => {
+            if (!this.map.hasLayer(layer)) layer.addTo(this.map);
+        });
     },
 
     /**
@@ -394,7 +516,33 @@ const Nearby = {
      */
     renderUpdated() {
         const time = new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
-        document.getElementById('nearbyUpdated').textContent = `🕒 Localização às ${time}`;
+        document.getElementById('nearbyUpdated').textContent = this.position && this.position.manual
+            ? `📍 Posição escolhida no mapa às ${time}`
+            : `🕒 Localização às ${time}`;
+    },
+
+    /**
+     * Last position picked on the map
+     * @returns {object|null} - { lat, lon, accuracy, manual }
+     */
+    loadManualPosition() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(this.MANUAL_KEY));
+            if (saved && Number.isFinite(saved.lat) && Number.isFinite(saved.lon)) {
+                return { lat: saved.lat, lon: saved.lon, accuracy: 0, manual: true };
+            }
+        } catch (error) {
+            // Storage unavailable or corrupt data
+        }
+        return null;
+    },
+
+    saveManualPosition() {
+        try {
+            localStorage.setItem(this.MANUAL_KEY, JSON.stringify({ lat: this.position.lat, lon: this.position.lon }));
+        } catch (error) {
+            // Storage unavailable: ignore
+        }
     },
 
     /**

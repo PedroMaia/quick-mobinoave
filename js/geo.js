@@ -68,7 +68,7 @@ const Geo = {
     positionError(error) {
         const messages = {
             1: 'Permissão de localização negada. Ative-a nas definições do navegador (ícone 🔒 junto ao endereço → Localização → Permitir).',
-            2: 'Não foi possível determinar a sua localização. Verifique se a localização do telemóvel está ligada (Definições → Localização) e tente novamente.',
+            2: 'Não foi possível determinar a sua localização. Verifique se a localização do telemóvel está ligada, se o Chrome tem permissão (Definições → Aplicações → Chrome → Autorizações → Localização) e se a "Precisão da localização Google" está ativa. Ou escolha a sua posição no mapa.',
             3: 'A obtenção da localização demorou demasiado. Verifique se a localização do telemóvel está ligada e tente novamente.'
         };
         return new Error(messages[error.code] || 'Erro ao obter a localização.');

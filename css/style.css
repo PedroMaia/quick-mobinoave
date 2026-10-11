@@ -263,6 +263,37 @@ header p {
     display: none;
 }
 
+.nearby-notice {
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+}
+
+.nearby-notice:empty {
+    display: none;
+}
+
+.nearby-notice-hint {
+    background-color: rgba(13, 110, 253, 0.1);
+    color: #0d6efd;
+}
+
+.nearby-notice-warning {
+    background-color: #fff3cd;
+    color: #664d03;
+}
+
+/* Waiting for a tap to set the position */
+.nearby-map.picking,
+.nearby-map.picking .leaflet-interactive {
+    cursor: crosshair;
+}
+
+.nearby-map.picking {
+    outline: 3px solid #0d6efd;
+}
+
 .distance-badge {
     display: inline-block;
     background-color: rgba(13, 110, 253, 0.1);
