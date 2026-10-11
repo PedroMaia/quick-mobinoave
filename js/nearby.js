@@ -130,7 +130,7 @@ const Nearby = {
         }
 
         try {
-            let usingSaved = false;
+            let gpsError = null;
             try {
                 this.position = await Geo.getPosition(fresh);
             } catch (geoError) {
@@ -139,12 +139,15 @@ const Nearby = {
                 if (!saved) throw geoError;
                 console.error('Location unavailable, using the position picked on the map:', geoError);
                 this.position = saved;
-                usingSaved = true;
+                gpsError = geoError;
             }
 
             await this.ensureStops();
 
-            this.setNotice(usingSaved ? '⚠️ Localização GPS indisponível — a usar a posição escolhida no mapa.' : '', 'warning');
+            // Keep the real reason visible, so the user can fix the phone setting behind it
+            this.setNotice(gpsError
+                ? `⚠️ A usar a posição escolhida no mapa. Motivo: ${gpsError.message}`
+                : '', 'warning');
             this.computeDistances();
             this.fitMode = 'nearest';
             this.visibleCount = this.PAGE_SIZE;
