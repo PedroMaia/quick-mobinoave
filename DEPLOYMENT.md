@@ -112,6 +112,7 @@ git push origin main           # redeploys the previous behavior
 | Deploy failed in Actions | Open the failed run for details, fix, commit and push again |
 | Location never asked / "Permissão negada" | iPhone: Settings → Privacy → Location Services → Safari Websites → *While Using*. Chrome: 🔒 icon in the address bar → Location → Allow. Then tap **Tentar novamente** |
 | Android: "Não foi possível determinar a sua localização" | Turn on device location (swipe down → **Localização**), and in Settings → Location → Location services enable **Google Location Accuracy** so Wi-Fi/network location works indoors. Then tap **Tentar novamente** |
+| Google Maps **app** finds you, but Chrome / the site doesn't ("O site tem permissão, mas o Chrome não está a receber a localização") | Android is blocking Chrome itself: Settings → Apps → **Chrome** → Permissions → **Location** → *Allow only while using the app*, and turn on **Use precise location**. In Chrome: ⋮ → Settings → Site settings → **Location** on, and `pedromaia.github.io` not under *Blocked*. Then tap **Tentar novamente** |
 | Google Maps can't find you either | The phone isn't giving any app a location (setting or hardware). Tap **🗺️ Escolher no mapa** and tap where you are; the app remembers it and uses it whenever GPS fails |
 | Map is grey (no tiles) | OpenStreetMap tiles are blocked by an ad blocker, or you're offline. The stop list still works |
 | Map doesn't appear at all | The jsdelivr CDN (Leaflet) is unreachable. The stop list still works without the map |

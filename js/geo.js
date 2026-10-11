@@ -19,45 +19,83 @@ const Geo = {
 
         try {
             // Try GPS first
-            return await this.requestPosition({
+            return await this.watchForPosition({
                 enableHighAccuracy: true,
-                maximumAge: fresh ? 0 : 60000,
-                timeout: 10000
-            });
+                maximumAge: fresh ? 0 : 60000
+            }, 12000);
         } catch (error) {
             // Permission denied: retrying won't help
             if (error.code === 1) throw this.positionError(error);
 
             // GPS unavailable or too slow (common indoors on Android): fall back to Wi-Fi/network location
             try {
-                return await this.requestPosition({
+                return await this.watchForPosition({
                     enableHighAccuracy: false,
-                    maximumAge: 300000,
-                    timeout: 15000
-                });
+                    maximumAge: 300000
+                }, 10000);
             } catch (fallbackError) {
-                throw this.positionError(fallbackError);
+                throw await this.diagnoseError(fallbackError);
             }
         }
     },
 
     /**
-     * Promise wrapper around getCurrentPosition
-     * @param {object} options - PositionOptions
+     * Wait for the first position from watchPosition.
+     * Android Chrome often reports "unavailable" while the GPS warms up and delivers a fix
+     * seconds later, so errors 2/3 are treated as temporary until waitMs runs out.
+     * @param {object} options - PositionOptions (without timeout)
+     * @param {number} waitMs - How long to keep listening
      * @returns {Promise<{lat: number, lon: number, accuracy: number}>}
      */
-    requestPosition(options) {
+    watchForPosition(options, waitMs) {
         return new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => resolve({
+            let lastError = { code: 3 }; // Timeout if nothing at all arrives
+            let watchId = null;
+
+            const finish = (callback, value) => {
+                clearTimeout(timer);
+                if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+                callback(value);
+            };
+
+            const timer = setTimeout(() => finish(reject, lastError), waitMs);
+
+            watchId = navigator.geolocation.watchPosition(
+                (pos) => finish(resolve, {
                     lat: pos.coords.latitude,
                     lon: pos.coords.longitude,
                     accuracy: pos.coords.accuracy
                 }),
-                reject,
+                (error) => {
+                    if (error.code === 1) {
+                        finish(reject, error);
+                    } else {
+                        lastError = error; // Keep listening
+                    }
+                },
                 options
             );
         });
+    },
+
+    /**
+     * Final error message, checking whether the site itself has permission
+     * @param {GeolocationPositionError} error
+     * @returns {Promise<Error>}
+     */
+    async diagnoseError(error) {
+        if (error.code === 2) {
+            try {
+                const status = await navigator.permissions.query({ name: 'geolocation' });
+                // The site is allowed, so the block is between Chrome and Android
+                if (status.state === 'granted') {
+                    return new Error('O site tem permissão, mas o Chrome não está a receber a localização do Android. Abra Definições → Aplicações → Chrome → Autorizações → Localização → Permitir, e ative "Usar localização exata". Depois toque em Tentar novamente. Ou escolha a sua posição no mapa.');
+                }
+            } catch (permissionsError) {
+                // Permissions API unavailable: use the generic message
+            }
+        }
+        return this.positionError(error);
     },
 
     /**
