@@ -411,6 +411,7 @@ const App = {
             this.refreshInterval = null;
         }
         BusMap.destroy();
+        StopMap.destroy();
 
         const isNearby = this.activeTab === 'nearby';
         document.getElementById('mainTabs').style.display = '';
@@ -457,6 +458,7 @@ const App = {
             this.refreshInterval = null;
         }
         BusMap.destroy();
+        StopMap.destroy();
         this.currentRoutes = [];
         // Drop the previous stop's cards so their buttons can't act on the new stop
         document.getElementById('routesList').innerHTML = '';
@@ -478,6 +480,9 @@ const App = {
             Storage.toggleFavorite(this.currentStop);
             this.renderFavoriteToggle();
         });
+
+        // Map of the stop (not awaited: routes load in parallel)
+        StopMap.open(this.currentStop);
 
         // Load routes and live data
         await this.refreshStopData();

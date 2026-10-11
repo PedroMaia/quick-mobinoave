@@ -19,6 +19,7 @@ const BusMap = {
      */
     async open(route, stop) {
         this.destroy();
+        StopMap.hide(); // One map at a time
         const requestId = ++this.request;
         this.route = route;
         this.stop = stop;
@@ -168,6 +169,7 @@ const BusMap = {
 
         const card = document.getElementById('busMapCard');
         if (card) card.innerHTML = '';
+        StopMap.show(); // Bring back the stop map
     }
 };
 

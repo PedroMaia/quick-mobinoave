@@ -333,6 +333,14 @@ header p {
     z-index: 0; /* Keep Leaflet panes below the sticky alerts */
 }
 
+/* Map of the current stop */
+.stop-map {
+    height: 200px;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    z-index: 0; /* Keep Leaflet panes below the sticky alerts */
+}
+
 .bus-marker {
     width: 30px;
     height: 30px;

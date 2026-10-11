@@ -10,6 +10,65 @@ const Alerts = {
     MINUTE_CHOICES: [2, 3, 5, 10, 15, 20, 30],
     DEFAULT_MINUTES: 5,
     LAST_MINUTES_KEY: 'mave_alert_minutes',
+    SOUND_KEY: 'mave_alert_sound',
+    DEFAULT_SOUND: 'beep',
+
+    // Alert sounds, generated with Web Audio (no audio files needed)
+    SOUNDS: {
+        beep: {
+            label: 'Bipe',
+            play(ctx) {
+                // Three short beeps
+                for (let i = 0; i < 3; i++) {
+                    Alerts.tone(ctx, { freq: 880, start: ctx.currentTime + i * 0.35, duration: 0.25 });
+                }
+            }
+        },
+        chime: {
+            label: 'Carrilhão',
+            play(ctx) {
+                // Rising C6 – E6 – G6
+                [1047, 1319, 1568].forEach((freq, i) => {
+                    Alerts.tone(ctx, { freq, start: ctx.currentTime + i * 0.25, duration: 0.8, volume: 0.2 });
+                });
+            }
+        },
+        bell: {
+            label: 'Campainha',
+            play(ctx) {
+                // Two strikes with a long fade
+                for (let i = 0; i < 2; i++) {
+                    Alerts.tone(ctx, { freq: 660, type: 'triangle', start: ctx.currentTime + i * 0.6, duration: 1.2, volume: 0.35 });
+                }
+            }
+        },
+        siren: {
+            label: 'Sirene',
+            play(ctx) {
+                // Tone swinging 600 ↔ 1200 Hz
+                const start = ctx.currentTime;
+                const duration = 1.6;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(600, start);
+                for (let t = 0; t < duration; t += 0.4) {
+                    osc.frequency.linearRampToValueAtTime(1200, start + t + 0.2);
+                    osc.frequency.linearRampToValueAtTime(600, start + t + 0.4);
+                }
+                gain.gain.setValueAtTime(0.12, start);
+                gain.gain.setValueAtTime(0.12, start + duration - 0.1);
+                gain.gain.linearRampToValueAtTime(0.001, start + duration);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(start);
+                osc.stop(start + duration);
+            }
+        },
+        none: {
+            label: 'Sem som',
+            play() {}
+        }
+    },
 
     timer: null,
     checking: false,
@@ -28,6 +87,16 @@ const Alerts = {
             <input type="radio" class="btn-check" name="alertMinutes" id="alertMin${min}" value="${min}" autocomplete="off">
             <label class="btn btn-outline-primary" for="alertMin${min}">${min} min</label>
         `).join('');
+
+        const soundSelect = document.getElementById('alertSound');
+        soundSelect.innerHTML = Object.entries(this.SOUNDS)
+            .map(([id, sound]) => `<option value="${id}">${sound.label}</option>`)
+            .join('');
+        document.getElementById('alertSoundPreview').addEventListener('click', () => {
+            // Runs in the tap, so the browser allows the sound
+            this.unlockAudio();
+            this.playSound(soundSelect.value);
+        });
 
         document.getElementById('alertSaveBtn').addEventListener('click', () => this.save());
         document.getElementById('alertRemoveBtn').addEventListener('click', () => {
@@ -101,6 +170,7 @@ const Alerts = {
 
         const radio = document.getElementById(`alertMin${minutes}`) || document.getElementById(`alertMin${this.DEFAULT_MINUTES}`);
         radio.checked = true;
+        document.getElementById('alertSound').value = this.loadSound();
 
         document.getElementById('alertRemoveBtn').style.display = existing ? '' : 'none';
         document.getElementById('alertSaveBtn').textContent = existing ? 'Atualizar alerta' : 'Ativar alerta';
@@ -155,6 +225,7 @@ const Alerts = {
             return;
         }
         this.saveLastMinutes(minutes);
+        this.saveSound(document.getElementById('alertSound').value);
         this.getModal().hide();
 
         if ('Notification' in window && Notification.permission === 'default') {
@@ -259,7 +330,7 @@ const Alerts = {
 
         await this.notify(title, body, alert);
         this.showBanner(title, body, alert.stopId);
-        this.beep();
+        this.playSound();
         if (navigator.vibrate) navigator.vibrate([300, 150, 300, 150, 300]);
 
         App.updateAlertButtons();
@@ -327,26 +398,35 @@ const Alerts = {
     },
 
     /**
-     * Three short beeps (no audio file needed)
+     * Play an alert sound
+     * @param {string} id - Key of SOUNDS (defaults to the saved choice)
      */
-    beep() {
+    playSound(id = this.loadSound()) {
         const ctx = this.audioCtx;
         if (!ctx) return;
+        const sound = this.SOUNDS[id] || this.SOUNDS[this.DEFAULT_SOUND];
         try {
-            for (let i = 0; i < 3; i++) {
-                const start = ctx.currentTime + i * 0.35;
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.frequency.value = 880;
-                gain.gain.setValueAtTime(0.25, start);
-                gain.gain.exponentialRampToValueAtTime(0.001, start + 0.25);
-                osc.connect(gain).connect(ctx.destination);
-                osc.start(start);
-                osc.stop(start + 0.25);
-            }
+            sound.play(ctx);
         } catch (error) {
             console.error('Error playing alert sound:', error);
         }
+    },
+
+    /**
+     * One note that fades out
+     * @param {AudioContext} ctx
+     * @param {object} opts - { freq, start, duration, type = 'sine', volume = 0.25 }
+     */
+    tone(ctx, { freq, start, duration, type = 'sine', volume = 0.25 }) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(volume, start);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + duration);
     },
 
     /**
@@ -438,6 +518,25 @@ const Alerts = {
     saveLastMinutes(minutes) {
         try {
             localStorage.setItem(this.LAST_MINUTES_KEY, String(minutes));
+        } catch (error) {
+            // Storage unavailable: ignore
+        }
+    },
+
+    loadSound() {
+        try {
+            const saved = localStorage.getItem(this.SOUND_KEY);
+            if (saved && this.SOUNDS[saved]) return saved;
+        } catch (error) {
+            // Storage unavailable
+        }
+        return this.DEFAULT_SOUND;
+    },
+
+    saveSound(id) {
+        if (!this.SOUNDS[id]) return;
+        try {
+            localStorage.setItem(this.SOUND_KEY, id);
         } catch (error) {
             // Storage unavailable: ignore
         }
