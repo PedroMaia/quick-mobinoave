@@ -283,6 +283,108 @@ header p {
     padding-top: 0.75rem;
 }
 
+/* Route card actions (alert, live map) */
+.route-actions .btn {
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+
+.route-actions .alert-btn.active {
+    background-color: #0d6efd;
+    color: #fff;
+}
+
+/* Live bus map */
+.bus-map {
+    height: 300px;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    z-index: 0; /* Keep Leaflet panes below the sticky alerts */
+}
+
+.bus-marker {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+}
+
+/* Arrival alerts */
+.alerts-bar {
+    background-color: #fff;
+    border: 1px solid #e9ecef;
+    border-left: 4px solid #ffc107;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+}
+
+.alerts-bar-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #495057;
+    margin-bottom: 0.25rem;
+}
+
+.alert-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+}
+
+.alert-chip + .alert-chip {
+    border-top: 1px solid #f1f3f5;
+}
+
+.alert-chip-main {
+    flex: 1;
+    min-width: 0;
+    background: none;
+    border: 0;
+    padding: 0;
+    text-align: left;
+    font-size: 0.85rem;
+    color: #2c3e50;
+}
+
+.alert-chip-main .badge {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.alert-chip-stop {
+    font-weight: 600;
+}
+
+.alert-chip-remove {
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.alert-minutes .btn {
+    border-radius: 6px;
+    min-width: 4.5rem;
+}
+
+.alert-banner-wrap {
+    position: sticky;
+    top: 10px;
+    z-index: 1001;
+    margin-bottom: 1rem;
+}
+
+.alert-banner {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
 /* Buttons */
 #backButton {
     border-radius: 8px;
@@ -362,7 +464,7 @@ a:focus, button:focus, input:focus {
         font-size: 16px; /* Prevents zoom on iOS */
     }
 
-    .nearby-map {
+    .nearby-map, .bus-map {
         height: 240px;
     }
 
@@ -374,7 +476,8 @@ a:focus, button:focus, input:focus {
 /* Print Styles */
 @media print {
     #searchInput, #routeFilter, #favoriteStops, #favoriteToggle, #backButton, .alert,
-    #mainTabs, .nearby-panel, .nearby-map, .nearby-footer {
+    #mainTabs, .nearby-panel, .nearby-map, .nearby-footer,
+    #alertsBar, #alertBanner, #busMapCard, .route-actions {
         display: none;
     }
 

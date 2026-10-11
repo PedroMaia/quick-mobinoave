@@ -10,6 +10,7 @@ const App = {
     selectedRouteId: null, // Active bus line filter
     routeFilterRequest: 0, // Guards against out-of-order route loads
     currentStop: null,   // Currently selected stop
+    currentRoutes: [],   // Routes (with live data) shown in the stop page
     refreshInterval: null, // Auto-refresh interval ID
     activeTab: 'stops',  // 'stops' or 'nearby'
     stopsReady: null,    // Promise for the initial stops load (used by Nearby)
@@ -25,6 +26,8 @@ const App = {
 
         // Set up event listeners
         this.setupEventListeners();
+        this.registerServiceWorker();
+        Alerts.init();
 
         // Load stops and bus lines from API
         this.stopsReady = this.loadStops();
@@ -32,6 +35,31 @@ const App = {
 
         // Show stop list view
         this.showStopListView();
+
+        // Deep link from a notification: ?stop=<id>
+        const linkedStopId = new URLSearchParams(location.search).get('stop');
+        if (linkedStopId) {
+            history.replaceState(null, '', location.pathname);
+            this.selectStop(linkedStopId);
+        }
+    },
+
+    /**
+     * Service worker: needed for notifications on Android and to install the app
+     */
+    registerServiceWorker() {
+        if (!('serviceWorker' in navigator)) return;
+
+        navigator.serviceWorker.register('sw.js').catch(error => {
+            console.error('Service worker registration failed:', error);
+        });
+
+        // Notification tapped while the app was already open
+        navigator.serviceWorker.addEventListener('message', (e) => {
+            if (e.data && e.data.type === 'open-stop') {
+                this.selectStop(e.data.stopId);
+            }
+        });
     },
 
     /**
@@ -54,6 +82,20 @@ const App = {
         const backButton = document.getElementById('backButton');
         backButton.addEventListener('click', () => {
             this.showStopListView();
+        });
+
+        // Route card buttons: alert and live map
+        document.getElementById('routesList').addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            const route = this.currentRoutes.find(r => String(r.id) === btn.getAttribute('data-route-id'));
+            if (!route) return;
+
+            if (btn.getAttribute('data-action') === 'alert') {
+                Alerts.openDialog(route, this.currentStop);
+            } else {
+                BusMap.open(route, this.currentStop);
+            }
         });
 
         // Main tabs
@@ -368,6 +410,7 @@ const App = {
             clearInterval(this.refreshInterval);
             this.refreshInterval = null;
         }
+        BusMap.destroy();
 
         const isNearby = this.activeTab === 'nearby';
         document.getElementById('mainTabs').style.display = '';
@@ -413,6 +456,10 @@ const App = {
             clearInterval(this.refreshInterval);
             this.refreshInterval = null;
         }
+        BusMap.destroy();
+        this.currentRoutes = [];
+        // Drop the previous stop's cards so their buttons can't act on the new stop
+        document.getElementById('routesList').innerHTML = '';
 
         // Show stop info
         const stopInfo = document.getElementById('stopInfo');
@@ -452,15 +499,21 @@ const App = {
             this.showLoading('routesList', 'A carregar rotas...');
         }
 
+        const stop = this.currentStop;
+
         try {
             // Load routes for this stop
-            const routes = await MaveAPI.getStopRoutes(this.currentStop.id);
+            const routes = await MaveAPI.getStopRoutes(stop.id);
             console.log(`Loaded ${routes.length} routes for stop`);
 
             // Load live data for each route
             const routesWithLiveData = await this.enrichRoutesWithLiveData(routes);
 
+            // Another stop was opened meanwhile: drop this stale result
+            if (stop !== this.currentStop || document.getElementById('stopDetailView').style.display === 'none') return;
+
             this.renderRoutes(routesWithLiveData);
+            BusMap.refresh(routesWithLiveData);
 
             // Hide connection error if it was showing
             this.hideConnectionError();
@@ -483,35 +536,11 @@ const App = {
      * @returns {Promise<Array>} - Routes with live data added
      */
     async enrichRoutesWithLiveData(routes) {
-        // Process routes in parallel (limited to avoid too many requests)
+        // Process routes in parallel
         const enrichedRoutes = await Promise.all(
             routes.map(async (route) => {
                 try {
-                    // Get vehicles for this route
-                    const vehicles = await MaveAPI.getLocations(route.id);
-
-                    if (vehicles.length === 0) {
-                        route.liveData = [];
-                        return route;
-                    }
-
-                    // Get detailed info for each vehicle (limit to first 3)
-                    const vehicleDetails = await Promise.all(
-                        vehicles.slice(0, 3).map(vehicle =>
-                            MaveAPI.getVehicleDetails(vehicle.id).catch(err => {
-                                console.error(`Error loading vehicle ${vehicle.id}:`, err);
-                                return null;
-                            })
-                        )
-                    );
-
-                    // Extract countdowns for current stop
-                    route.liveData = vehicleDetails
-                        .filter(v => v !== null && v.journey && v.journey.circulations)
-                        .map(vehicle => this.findStopInCirculations(vehicle.journey.circulations))
-                        .filter(countdown => countdown !== null)
-                        .sort((a, b) => a.dueInMinutes - b.dueInMinutes);
-
+                    route.liveData = await MaveAPI.getArrivals(route.id, this.currentStop.id);
                 } catch (error) {
                     console.error(`Error enriching route ${route.id}:`, error);
                     route.liveData = [];
@@ -522,36 +551,6 @@ const App = {
         );
 
         return enrichedRoutes;
-    },
-
-    /**
-     * Find current stop in vehicle circulations
-     * @param {Array} circulations - Vehicle circulations array
-     * @returns {object|null} - Countdown object or null
-     */
-    findStopInCirculations(circulations) {
-        if (!circulations || circulations.length === 0) return null;
-
-        // Look for a circulation matching current stop's nameShort or name
-        const match = circulations.find(circ => {
-            if (!circ.stage) return false;
-
-            const stageName = circ.stage.nameShort || circ.stage.name || '';
-            const stopNameShort = this.currentStop.nameShort || '';
-            const stopName = this.currentStop.name || '';
-
-            // Try to match by nameShort first, then by name
-            return stageName === stopNameShort ||
-                   stageName.includes(stopNameShort) ||
-                   circ.stage.name === stopName;
-        });
-
-        if (!match || match.dueInMinutes === undefined) return null;
-
-        return {
-            dueInMinutes: match.dueInMinutes,
-            sequence: match.sequence
-        };
     },
 
     /**
@@ -632,17 +631,39 @@ const App = {
                                 <small class="text-muted">Sem partidas agendadas</small>
                             </div>
                         ` : ''}
+
+                        <div class="d-flex flex-wrap gap-2 mt-3 route-actions">
+                            <button type="button" class="btn btn-sm btn-outline-primary alert-btn" data-action="alert" data-route-id="${this.escapeHTML(String(route.id))}"></button>
+                            ${hasLiveData ? `
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-action="map" data-route-id="${this.escapeHTML(String(route.id))}">🗺️ Ver no mapa</button>
+                            ` : ''}
+                        </div>
                     </div>
                 </div>
             `;
         }).join('');
 
+        this.currentRoutes = routes;
         routesList.innerHTML = `
             <div class="alert alert-success mb-3">
                 <small>✓ Dados em tempo real • Atualizado às ${timeStr} • Atualiza a cada 20s</small>
             </div>
             ${routesHTML}
         `;
+        this.updateAlertButtons();
+    },
+
+    /**
+     * Show which lines of the current stop have an alert armed
+     */
+    updateAlertButtons() {
+        if (!this.currentStop) return;
+
+        document.querySelectorAll('#routesList .alert-btn').forEach(btn => {
+            const alert = Storage.getAlert(this.currentStop.id, btn.getAttribute('data-route-id'));
+            btn.classList.toggle('active', Boolean(alert));
+            btn.textContent = alert ? `🔔 Alerta ativo · ${alert.minutes} min` : '🔔 Avisar-me';
+        });
     },
 
     /**

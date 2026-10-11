@@ -8,6 +8,9 @@ Simple web application for real-time bus tracking in Vale do Ave region (norther
 - Filter by bus number to see all stops on that line (in route order)
 - Real-time bus arrival countdowns
 - Favorite stops (saved in cookies)
+- Arrival alerts: 🔔 on a line at a stop warns you (notification, sound, vibration) when the next bus is 2–30 min away, once, while the app is open
+- Live bus map: 🗺️ on a line shows its buses heading to the stop and the route, updated every 20s
+- Installable app (PWA manifest + a service worker used only for notifications, no offline cache)
 - "Perto de mim" tab: your location on a map plus all stops within an adjustable radius (200 m – 5 km, default 2 km), sorted by distance with walking time
 - Mobile-friendly responsive design
 - Portuguese interface

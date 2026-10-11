@@ -1,0 +1,25 @@
+{
+    "name": "MAVE Bus Tracking",
+    "short_name": "MAVE",
+    "description": "Horários em tempo real e alertas de chegada dos autocarros MAVE - Vale do Ave",
+    "lang": "pt",
+    "start_url": "./",
+    "scope": "./",
+    "display": "standalone",
+    "background_color": "#f8f9fa",
+    "theme_color": "#0d6efd",
+    "icons": [
+        {
+            "src": "icons/icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "maskable"
+        }
+    ]
+}

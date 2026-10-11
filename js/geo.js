@@ -107,6 +107,34 @@ const Geo = {
     },
 
     /**
+     * Decode a Google encoded polyline (the API's journey.shape)
+     * @param {string} encoded
+     * @returns {Array<[number, number]>} - [[lat, lon], ...]
+     */
+    decodePolyline(encoded) {
+        const points = [];
+        let index = 0, lat = 0, lon = 0;
+
+        // Each coordinate is a delta from the previous one, in 5-bit chunks offset by 63
+        const nextValue = () => {
+            let result = 0, shift = 0, byte;
+            do {
+                byte = encoded.charCodeAt(index++) - 63;
+                result |= (byte & 0x1f) << shift;
+                shift += 5;
+            } while (byte >= 0x20 && index < encoded.length);
+            return (result & 1) ? ~(result >> 1) : (result >> 1);
+        };
+
+        while (index < encoded.length) {
+            lat += nextValue();
+            lon += nextValue();
+            points.push([lat / 1e5, lon / 1e5]);
+        }
+        return points;
+    },
+
+    /**
      * Lazy-load Leaflet (CSS + JS) once
      * @returns {Promise<object>} - The global L object
      */

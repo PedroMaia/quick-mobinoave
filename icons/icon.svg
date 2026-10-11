@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full-bleed background so the icon also works as "maskable" (bus kept inside the safe zone) -->
+  <rect width="512" height="512" fill="#0d6efd"/>
+  <g fill="#fff">
+    <!-- Body -->
+    <rect x="156" y="130" width="200" height="230" rx="36"/>
+    <!-- Wheels -->
+    <rect x="176" y="350" width="40" height="40" rx="10"/>
+    <rect x="296" y="350" width="40" height="40" rx="10"/>
+    <!-- Mirrors -->
+    <rect x="134" y="180" width="14" height="50" rx="7"/>
+    <rect x="364" y="180" width="14" height="50" rx="7"/>
+  </g>
+  <g fill="#0d6efd">
+    <!-- Destination sign -->
+    <rect x="196" y="150" width="120" height="18" rx="9"/>
+    <!-- Windscreen -->
+    <rect x="178" y="184" width="156" height="96" rx="14"/>
+    <!-- Headlights -->
+    <circle cx="196" cy="322" r="14"/>
+    <circle cx="316" cy="322" r="14"/>
+  </g>
+</svg>

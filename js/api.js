@@ -124,6 +124,49 @@ const MaveAPI = {
      */
     async getVehicleDetails(vehicleId) {
         return await this.fetchAPI(`/locations/${vehicleId}`);
+    },
+
+    /**
+     * Live buses of a line still heading to a stop, nearest first
+     * (used by the stop page, the alerts and the bus map)
+     * @param {string} routeId - Route ID
+     * @param {string} stopId - Stop ID (matches circulations[].stage.id)
+     * @returns {Promise<Array>} - [{ vehicleId, dueInMinutes, position, shape, color, stopSequence, currentStopSequence }]
+     */
+    async getArrivals(routeId, stopId) {
+        const vehicles = await this.getLocations(routeId);
+
+        const details = await Promise.all(
+            vehicles.map(vehicle =>
+                this.getVehicleDetails(vehicle.id).catch(error => {
+                    console.error(`Error loading vehicle ${vehicle.id}:`, error);
+                    return null;
+                })
+            )
+        );
+
+        const arrivals = [];
+        details.forEach(vehicle => {
+            if (!vehicle || !vehicle.journey || !vehicle.journey.circulations) return;
+
+            // dueInMinutes is only present on stops the bus hasn't reached yet
+            const circ = vehicle.journey.circulations.find(c =>
+                c.stage && String(c.stage.id) === String(stopId) && c.dueInMinutes !== undefined
+            );
+            if (!circ) return;
+
+            arrivals.push({
+                vehicleId: vehicle.id,
+                dueInMinutes: circ.dueInMinutes,
+                position: vehicle.position,
+                shape: vehicle.journey.shape || null,
+                color: vehicle.route && vehicle.route.color,
+                stopSequence: circ.sequence,
+                currentStopSequence: vehicle.currentStopSequence
+            });
+        });
+
+        return arrivals.sort((a, b) => a.dueInMinutes - b.dueInMinutes);
     }
 };
 

@@ -42,6 +42,11 @@ Go through this checklist locally (use DevTools → responsive mode at ~375px fo
 - [ ] Moving the radius slider updates the label immediately and the list/map/count smoothly
 - [ ] Opening a stop from the nearby list or a map popup, then **← Voltar**, returns to **Perto de mim**
 - [ ] Denying location shows an error with **Tentar novamente**; the **Paragens** tab still works
+- [ ] In a stop, **🔔 Avisar-me** opens the dialog; **Ativar alerta** asks for notification permission and shows the alert in **Alertas ativos**
+- [ ] An alert with minutes ≥ the live countdown fires right away (notification + banner + beep), then disappears from the bar
+- [ ] Tapping the notification opens that stop; ✕ in the bar cancels an alert
+- [ ] **🗺️ Ver no mapa** (lines with live buses) shows the stop, the route line and the bus, and the bus moves on each 20s refresh
+- [ ] DevTools → Application → Service workers shows `sw.js` activated; Manifest shows no errors
 - [ ] No errors in the DevTools console
 
 ## Step 4 — Commit your changes
@@ -51,7 +56,7 @@ Go through this checklist locally (use DevTools → responsive mode at ~375px fo
 
 ```bash
 git status                     # review what changed
-git add index.html js/ css/ README.md DEPLOYMENT.md
+git add index.html js/ css/ icons/ sw.js manifest.webmanifest README.md DEPLOYMENT.md
 git commit -m "Describe your change"
 ```
 
@@ -77,6 +82,16 @@ git push origin main
 5. Quickly repeat the key checks from Step 3 on the live site (desktop and phone)
 6. On a phone, open **Perto de mim**, allow location and confirm the map tiles, your blue dot and the nearby stops appear
 
+## Arrival alerts — how they work on a phone
+
+The site has no server, so alerts are checked **by the open app** every 30 seconds.
+
+1. **Install the app**: Chrome menu ⋮ → **Add to Home screen** / **Install app**. An installed app is less likely to be paused by Android.
+2. Open a stop → **🔔 Avisar-me** on your line → pick the minutes → **Ativar alerta** → allow notifications.
+3. **Keep the app open.** You can lock the screen, but if the app stays in the background for a long time Android may pause it and the alert won't fire.
+4. Optional: **Manter ecrã ligado** in the *Alertas ativos* bar keeps the screen on (and the app awake) while you wait.
+5. Each alert warns **once** and then switches off. Forgotten alerts expire after 3 hours.
+
 ## Step 8 — Rollback (if something breaks)
 
 ```bash
@@ -99,6 +114,9 @@ git push origin main           # redeploys the previous behavior
 | Map is grey (no tiles) | OpenStreetMap tiles are blocked by an ad blocker, or you're offline. The stop list still works |
 | Map doesn't appear at all | The jsdelivr CDN (Leaflet) is unreachable. The stop list still works without the map |
 | Tabs don't work after a deploy | Stale cached JS: hard refresh, and check the `?v=` numbers were bumped in `index.html` |
+| No alert notification | Chrome: 🔒 icon → Notifications → Allow. Android: Settings → Apps → Chrome → Notifications on. Keep the app open (see *Arrival alerts*) |
+| Alert fired late or not at all with the phone locked | Android paused the page. Install the app, turn on **Manter ecrã ligado**, or exclude Chrome from battery optimization |
+| "Install app" not offered | The manifest uses an SVG icon; some Android versions want PNG icons. Add `icons/icon-192.png` and `icon-512.png` and list them in `manifest.webmanifest` |
 
 ---
 
@@ -106,5 +124,6 @@ git push origin main           # redeploys the previous behavior
 - HTML5, CSS3, JavaScript (ES6+)
 - Bootstrap 5 (CDN)
 - Leaflet 1.9.4 (jsdelivr CDN, lazy-loaded) + OpenStreetMap tiles
+- Service worker (`sw.js`, notifications only) + web app manifest
 - MAVE API: https://mave.elevensystems.pt/api
 - Hosting: GitHub Pages
